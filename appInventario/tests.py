@@ -13,7 +13,7 @@ class ModeloTestCase(TestCase):
         self.proveedor = Proveedor.objects.create(
             proTipo='Persona Natural',
             proIdentificacion='123',
-            proNombre='Leyder Arlex',
+            proNombre='Maria Paula',
         )
         self.producto = Producto.objects.create(
             proCodigo='codigo_producto',
@@ -43,8 +43,8 @@ class ModeloTestCase(TestCase):
         self.assertEqual(marca.marcaNombre, 'Marca de prueba')
 
     def test_modelo_proveedor(self):
-        proveedor = Proveedor.objects.get(proNombre='Leyder Arlex')
-        self.assertEqual(proveedor.proNombre, 'Leyder Arlex')
+        proveedor = Proveedor.objects.get(proNombre='Maria Paula')
+        self.assertEqual(proveedor.proNombre, 'Maria Paula')
 
     def test_modelo_producto(self):
         producto = Producto.objects.get(proCodigo='codigo_producto')

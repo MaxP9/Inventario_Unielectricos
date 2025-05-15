@@ -188,7 +188,7 @@ def registrarUsuario(request):
             estado = True
             
             return JsonResponse({'estado': True, 'mensaje': mensaje})
-            return redirect('listaUsuario')
+            # return redirect('listaUsuario')
         
     except Exception as e:
             transaction.rollback()
@@ -313,7 +313,7 @@ def activaUsuario(request, user_id, mensaje):
 
 
 
-@login_required(login_url='/')
+# @login_required(login_url='/')
 def enviarCorreo(asunto=None, contenido=None, destinatario=None):
     remitente = settings.EMAIL_HOST_USER
     try:
@@ -322,10 +322,12 @@ def enviarCorreo(asunto=None, contenido=None, destinatario=None):
         correo.send(fail_silently=True)
     except SMTPException as error:
         print(error)
+        
+   
 
 
 
-@login_required(login_url='/')       
+     
 def generarPassword():
     longitud = 10
     caracteres = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation
@@ -1519,186 +1521,125 @@ def error404(request, exception):
 
 
 def graficaEstadistica(request):
-    plt.subplots(figsize=(14, 12))
-    # Obtener el total de ventas
+    plt.figure(figsize=(14, 12))
+
+    # 1. Productos más vendidos
     totalVentas = DetalleVenta.objects.aggregate(TotalVentas=Sum('detPrecioAcumulativo'))['TotalVentas']
-    
-    # Obtener las ventas por producto
     ventasProducto = DetalleVenta.objects.values('detProducto__proNombre').annotate(cantidadProducto=Sum('detCantidad'))
-  
-    color = '#F1BCBC'
-    color2 = '#ABEBC6'
-    color3 = '#fdc275'
-    listaDatos = []
-    info = []
-   
-    
-    for ventaProducto in ventasProducto:
-        producto = ventaProducto['detProducto__proNombre']
-        precioTotalVentas = ventaProducto['cantidadProducto']
-        # porcentajeVenta = (precioTotalVentas / totalVentas) * 100
-        info.append(producto)
-        listaDatos.append(precioTotalVentas)
-    
-     
-    plt.subplot(3, 3, 1)  
-    plt.title("Productos más vendidos")    
-    plt.xlabel("Productos") 
-    plt.ylabel("Ventas", labelpad=15)
-    plt.xticks(rotation=45, ha="right")
-    
-    # print(info)
-    plt.bar(info, listaDatos, color=color)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
-#---------------------------------------------------------------------------------------   
-    dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
 
-    # Consulta para obtener las ventas totales por día de la semana
-    consultaVentasDiasSemana = ( DetalleVenta.objects.annotate(dia_semana=ExpressionWrapper(
-            Func(F('detVenta__fechaHoraCreacion'), function='DAYOFWEEK'), 
-            output_field=IntegerField()
-        ))
-        .values('dia_semana').annotate(TotalVentasDiaSemana=Sum('detCantidad')).order_by('dia_semana')
-    )
+    productos = [vp['detProducto__proNombre'] for vp in ventasProducto]
+    cantidades = [vp['cantidadProducto'] for vp in ventasProducto]
 
-    # Plot
-    xDias = []
-    yVentaDia = []
-
-    for ventaDiaSemana in consultaVentasDiasSemana:
-        yVentaDia.append(ventaDiaSemana['TotalVentasDiaSemana'])
-        dia = ventaDiaSemana['dia_semana']
-        xDias.append(dias[dia - 1])
-
-
-    plt.subplot(3, 3, 2) 
-    plt.title("Ventas por dia de semana")
-    plt.xlabel("Día de la Semana")
+    plt.subplot(3, 3, 1)
+    plt.title("Productos más vendidos")
+    plt.xlabel("Productos")
     plt.ylabel("Ventas")
     plt.xticks(rotation=45, ha="right")
-    
-    plt.bar(xDias, yVentaDia, color=color2)
+    plt.bar(productos, cantidades, color='#F1BCBC')
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    
-#----------------------------------------------------------------------------------
-    Mes = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
 
-    # Consulta para obtener las ventas totales por día de la semana
-    consultaVentasMes = (
-        DetalleVenta.objects.annotate(mess=ExpressionWrapper(
-            Func(F('detVenta__fechaHoraCreacion'), function='MONTH'), 
-            output_field=IntegerField()
-        ))
-        .values('mess').annotate(totalMes=Sum('detCantidad')).order_by('mess')
+    # 2. Ventas por día de la semana
+    dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+    ventas_dias = (
+        DetalleVenta.objects.annotate(
+            dia_semana=ExpressionWrapper(Func(F('detVenta__fechaHoraCreacion'), function='DAYOFWEEK'), output_field=IntegerField())
+        ).values('dia_semana').annotate(TotalVentasDiaSemana=Sum('detCantidad')).order_by('dia_semana')
     )
 
-    # Plot
-    xMes = []
-    yVentaMes = []
+    xDias = [dias[v['dia_semana'] - 1] for v in ventas_dias]
+    yVentas = [v['TotalVentasDiaSemana'] for v in ventas_dias]
 
-    for ventaMes in consultaVentasMes:
-        print(ventaMes)
-        yVentaMes.append(ventaMes['totalMes'])
-        mes = ventaMes['mess']
-        xMes.append(Mes[mes - 1])
+    plt.subplot(3, 3, 2)
+    plt.title("Ventas por día de semana")
+    plt.xlabel("Día")
+    plt.ylabel("Ventas")
+    plt.xticks(rotation=45, ha="right")
+    plt.bar(xDias, yVentas, color='#ABEBC6')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
 
-    plt.subplot(3, 3, 3) 
+    # 3. Ventas por mes
+    meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    ventas_meses = (
+        DetalleVenta.objects.annotate(
+            mess=ExpressionWrapper(Func(F('detVenta__fechaHoraCreacion'), function='MONTH'), output_field=IntegerField())
+        ).values('mess').annotate(totalMes=Sum('detCantidad')).order_by('mess')
+    )
+
+    xMes = [meses[v['mess'] - 1] for v in ventas_meses]
+    yMes = [v['totalMes'] for v in ventas_meses]
+
+    plt.subplot(3, 3, 3)
     plt.title("Ventas por mes")
     plt.xlabel("Mes")
     plt.ylabel("Ventas")
     plt.xticks(rotation=45, ha="right")
+    plt.bar(xMes, yMes, color='#fdc275')
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
-    plt.bar(xMes, yVentaMes, color=color3)
-    
- #-------------------------------------------------------------------------------------------------------------------------------------
+    # 4. Productos con mayor stock
     productos_stock = Producto.objects.values('proNombre').annotate(cantidadStock=F('proCantidad')).order_by('-cantidadStock')[:5]
+    nombres_stock = [p['proNombre'] for p in productos_stock]
+    cantidades_stock = [p['cantidadStock'] for p in productos_stock]
 
-    nombres_productos = [producto['proNombre'] for producto in productos_stock]
-    cantidades_stock = [producto['cantidadStock'] for producto in productos_stock]
-
-    plt.subplot(3, 3, 4)  # Puedes ajustar el número de la subgráfica según tu diseño
-    plt.title("Productos con mayor cantidad en stock")
-    plt.xlabel("Productos")
-    plt.ylabel("Cantidad en Stock", labelpad=15)
+    plt.subplot(3, 3, 4)
+    plt.title("Productos con mayor stock")
+    plt.xlabel("Producto")
+    plt.ylabel("Stock")
     plt.xticks(rotation=45, ha="right")
-
-    plt.bar(nombres_productos, cantidades_stock, color='#e9b6f5')
-    plt.tight_layout(pad=3.0)
+    plt.bar(nombres_stock, cantidades_stock, color='#e9b6f5')
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
 
-#------------------------------------------------------------------------------------------------------------------------------
+    # 5. Productos más vendidos por mes
+    ventas_mes_productos = (
+        DetalleVenta.objects.annotate(
+            mes=ExpressionWrapper(Func(F('detVenta__fechaHoraCreacion'), function='MONTH'), output_field=IntegerField())
+        ).values('detProducto__proNombre', 'mes').annotate(totalVentasMes=Sum('detCantidad')).order_by('mes', '-totalVentasMes')
+    )
 
-    productos_mes_mas_vendidos = (
-    DetalleVenta.objects
-    .annotate(mes=ExpressionWrapper(
-        Func(F('detVenta__fechaHoraCreacion'), function='MONTH'), 
-        output_field=IntegerField()
-    ))
-    .values('detProducto__proNombre', 'mes')
-    .annotate(totalVentasMes=Sum('detCantidad'))
-    .order_by('mes', '-totalVentasMes')
-)
-
-# Crear un diccionario para almacenar datos por mes
     datos_por_mes = {}
-    for venta_mes in productos_mes_mas_vendidos:
-        mes = venta_mes['mes']
-        producto = venta_mes['detProducto__proNombre']
-        ventas_mes = venta_mes['totalVentasMes']
+    for v in ventas_mes_productos:
+        mes = v['mes']
+        if mes not in datos_por_mes:
+            datos_por_mes[mes] = {'productos': [], 'ventas': []}
+        datos_por_mes[mes]['productos'].append(v['detProducto__proNombre'])
+        datos_por_mes[mes]['ventas'].append(v['totalVentasMes'])
 
-    if mes not in datos_por_mes:
-        datos_por_mes[mes] = {'productos': [], 'ventas': []}
-
-    datos_por_mes[mes]['productos'].append(producto)
-    datos_por_mes[mes]['ventas'].append(ventas_mes)
-
-    # Crear subgráficas para cada mes
-    subgrafica_num = 7  # Ajusta el número de la subgráfica según tu diseño
-    for mes, datos in datos_por_mes.items():
-        plt.subplot(3, 3, 5)
-        plt.title(f"Productos más vendidos - {Mes[mes - 1]}")
-        plt.xlabel("Productos")
+    subplot_index = 5
+    for mes_num, datos in datos_por_mes.items():
+        if subplot_index > 9:  # máximo de 9 subplots
+            break
+        plt.subplot(3, 3, subplot_index)
+        plt.title(f"Más vendidos - {meses[mes_num - 1]}")
+        plt.xlabel("Producto")
         plt.ylabel("Ventas")
         plt.xticks(rotation=45, ha="right")
-        
         plt.bar(datos['productos'], datos['ventas'], color='#9fd7fc')
-    
-    subgrafica_num += 1
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        subplot_index += 1
 
+    # 6. Productos menos vendidos
+    productos_menos = Producto.objects.values('proNombre').annotate(cantidadVentas=F('proVenta')).order_by('cantidadVentas')[:5]
+    nombres_menos = [p['proNombre'] for p in productos_menos]
+    cantidades_menos = [p['cantidadVentas'] for p in productos_menos]
+
+    if subplot_index <= 9:
+        plt.subplot(3, 3, subplot_index)
+        plt.title("Productos menos vendidos")
+        plt.xlabel("Producto")
+        plt.ylabel("Ventas")
+        plt.xticks(rotation=45, ha="right")
+        plt.bar(nombres_menos, cantidades_menos, color='#f1f753')
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    # Guardar y cerrar imagen
     plt.tight_layout(pad=3.0)
     plt.subplots_adjust(wspace=0.2, hspace=0.5)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    
-#-----------------------------------------------------------------------------------------------------------------------------
-
-    productos_menos_vendidos = Producto.objects.values('proNombre').annotate(cantidadVentas=F('proVenta')).order_by('cantidadVentas')[:5]
-
-    nombres_productos_menos_vendidos = [producto['proNombre'] for producto in productos_menos_vendidos]
-    cantidades_menos_vendidos = [producto['cantidadVentas'] for producto in productos_menos_vendidos]
-
-# Crear subgráfica para "PRODUCTOS MENOS VENDIDOS"
-    plt.subplot(3, 3, 6)  # Ajusta el número de la subgráfica según tu diseño
-    plt.title("Productos menos vendidos")
-    plt.xlabel("Productos")
-    plt.ylabel("Cantidad de Ventas", labelpad=15)
-    plt.xticks(rotation=45, ha="right")
-
-    plt.bar(nombres_productos_menos_vendidos, cantidades_menos_vendidos, color='#f1f753')
-    plt.tight_layout(pad=3.0)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.xticks(rotation=45, ha="right")
-    
-    imagen3 = os.path.join(settings.MEDIA_ROOT +"\\"+"grafica3.png")
-    plt.savefig(imagen3)
-    plt.tight_layout()
+    imagen_path = os.path.join(settings.MEDIA_ROOT, "grafica3.png")
+    plt.savefig(imagen_path)
     plt.close()
-   
-    return render(request, "Administrador/frmEstadisticas.html")
 
+    return render(request, "Administrador/frmEstadisticas.html")
 
 
 
